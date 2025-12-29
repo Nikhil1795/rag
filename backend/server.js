@@ -274,20 +274,4 @@ app.post("/chat", async (req, res) => {
 });
 
 const PORT = 5000;
-app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`));
-
-
-
-let inp = prompt("Enter a number");
-let noChar = /[^a-zA-Z\s]/g;
-if(inp == 0) {
-  alert(inp + "Number is 0");
-} else if(inp > 0 && inp%2 == 0) {
-  alert(inp + "Number is Positive Even");
-} else if(inp > 0 && inp%2 !== 0) {
-  alert(inp + "Number is Positive Odd");
-}  else if(inp < 0) {
-  alert(inp + "Number is Negative");
-} else if(inp = noChar) {
-   alert("Not allowed");
-}
+app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`))
