@@ -274,8 +274,8 @@ app.post("/chat", async (req, res) => {
 });
 
 // To run on local
-const PORT = 5000;
-app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`))
+// const PORT = 5000;
+// app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`))
 
 // export for Vercel
-// module.exports = app;
+module.exports = app;
