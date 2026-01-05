@@ -10,7 +10,8 @@ function App() {
 
   useEffect(() => {
     // Load PDF on mount
-    axios.get('http://localhost:5000/load-pdf').then(() => {
+    // axios.get('http://localhost:5000/load-pdf').then(() => {
+      axios.get('/api/chat/load-pdf').then(() => {
       // setMessages([{ sender: 'bot', text: 'PDF loaded! Ask away.' }]);
     }).catch(err => console.error(err));
   }, []);
@@ -31,7 +32,8 @@ function App() {
     setLoading(true);
 
     try {
-      const res = await axios.post('http://localhost:5000/chat', { message: input });
+      // const res = await axios.post('http://localhost:5000/chat', { message: input });
+      const res = await axios.post('/api/chat', { message: input });
       setMessages(prev => [...prev, { sender: 'bot', text: res.data.response }]);
     } catch (err) {
       setMessages(prev => [...prev, { sender: 'bot', text: 'Error: ' + err.message }]);
