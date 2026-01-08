@@ -273,5 +273,6 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-const PORT = 5000;
-app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`))
+// const PORT = 5000;
+// app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`))
+module.exports = app;
