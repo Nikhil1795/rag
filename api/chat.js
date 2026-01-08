@@ -1,58 +1,32 @@
-import fs from "fs";
-import path from "path";
-import { GoogleGenAI } from "@google/genai";
-import PDFParse from "pdf-parse";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
-
-let documents = [];
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+};
 
 export default async function handler(req, res) {
-  if (req.method === "GET") {
-    await loadPDF();
-    return res.json({ status: "PDF loaded" });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (req.method === "POST") {
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
     const { message } = req.body;
-    if (!message) return res.status(400).json({ error: "No message" });
+    if (!message) {
+      return res.status(400).json({ error: "Message required" });
+    }
 
-    const reply = await chatWithPDF(message);
-    return res.json({ response: reply });
+    const result = await model.generateContent(message);
+
+    res.status(200).json({
+      response: result.response.text(),
+    });
+  } catch (err) {
+    console.error("API ERROR:", err);
+    res.status(500).json({ error: "Server error" });
   }
-
-  res.status(405).json({ error: "Method not allowed" });
-}
-
-// ---------------- HELPERS ----------------
-
-async function loadPDF() {
-  if (documents.length) return;
-
-  const pdfPath = path.join(process.cwd(), "backend/sample.pdf");
-  const buffer = fs.readFileSync(pdfPath);
-  const data = await PDFParse(buffer);
-
-  documents.push(data.text);
-}
-
-async function chatWithPDF(question) {
-  const context = documents.join("\n").slice(0, 12000);
-
-  const result = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: `
-Answer ONLY from this PDF context.
-
-Context:
-${context}
-
-Question:
-${question}
-`,
-  });
-
-  return result.text;
 }

@@ -1,5 +1,25 @@
 {
-  "framework": "vite",
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist"
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    },
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/build/$1"
+    }
+  ]
 }

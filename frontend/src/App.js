@@ -8,13 +8,13 @@ function App() {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  useEffect(() => {
-    // Load PDF on mount
-    // axios.get('http://localhost:5000/load-pdf').then(() => {
-      axios.get('/api/chat').then(() => {
-      // setMessages([{ sender: 'bot', text: 'PDF loaded! Ask away.' }]);
-    }).catch(err => console.error(err));
-  }, []);
+  // useEffect(() => {
+  //   // Load PDF on mount
+  //   // axios.get('http://localhost:5000/load-pdf').then(() => {
+  //     axios.get('/api/chat').then(() => {
+  //     // setMessages([{ sender: 'bot', text: 'PDF loaded! Ask away.' }]);
+  //   }).catch(err => console.error(err));
+  // }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
