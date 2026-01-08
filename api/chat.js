@@ -1,22 +1,58 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import fs from "fs";
+import path from "path";
+import { GoogleGenAI } from "@google/genai";
+import PDFParse from "pdf-parse";
+
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
+
+let documents = [];
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method === "GET") {
+    await loadPDF();
+    return res.json({ status: "PDF loaded" });
   }
 
-  try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+  if (req.method === "POST") {
     const { message } = req.body;
-    const result = await model.generateContent(message);
+    if (!message) return res.status(400).json({ error: "No message" });
 
-    res.status(200).json({
-      reply: result.response.text(),
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+    const reply = await chatWithPDF(message);
+    return res.json({ response: reply });
   }
+
+  res.status(405).json({ error: "Method not allowed" });
+}
+
+// ---------------- HELPERS ----------------
+
+async function loadPDF() {
+  if (documents.length) return;
+
+  const pdfPath = path.join(process.cwd(), "backend/sample.pdf");
+  const buffer = fs.readFileSync(pdfPath);
+  const data = await PDFParse(buffer);
+
+  documents.push(data.text);
+}
+
+async function chatWithPDF(question) {
+  const context = documents.join("\n").slice(0, 12000);
+
+  const result = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: `
+Answer ONLY from this PDF context.
+
+Context:
+${context}
+
+Question:
+${question}
+`,
+  });
+
+  return result.text;
 }

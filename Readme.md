@@ -1,0 +1,15 @@
+api
+    api/chat.js
+backend
+    backend/node_modules
+    backend/.env
+    backend/sample.pdf
+    backend/server.js
+    backend/vercel.json
+frontend
+    frontend/node_modules
+    frontend/public
+    frontend/src/App.js
+    frontend/src/App.css
+    frontend/package.json
+vercel.json

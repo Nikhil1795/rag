@@ -194,105 +194,84 @@ app.get("/", (req, res) =>
   res.send("Server running! POST to /chat, GET /load-pdf.")
 );
 
-let pdfLoaded = false;
-app.post("/chat", async (req, res) => {
+app.get("/load-pdf", async (req, res) => {
   try {
-    if (!pdfLoaded) {
-      console.log("PDF not loaded yet");
-      return res.json({
-        response: "PDF not loaded yet. Please load PDF first."
-      });
-    }
-
-    // rest of code
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    await loadPDF("sample.pdf");
+    console.log("PDF Found");
+    res.json({ status: "PDF loaded successfully" });
+  } catch (error) {
+    console.log("No PDF Found");
+    console.error("Load PDF error:", error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// app.get("/load-pdf", async (req, res) => {
-//   try {
-//     await loadPDF("sample.pdf");
-//     console.log("PDF Found");
-//     res.json({ status: "PDF loaded successfully" });
-//   } catch (error) {
-//     console.log("No PDF Found");
-//     console.error("Load PDF error:", error.message);
-//     res.status(500).json({ error: error.message });
-//   }
-// });
+app.post("/chat", async (req, res) => {
+  const { message } = req.body;
+  if (!message) return res.status(400).json({ error: "No message provided" });
 
-// app.post("/chat", async (req, res) => {
-//   const { message } = req.body;
-//   if (!message) return res.status(400).json({ error: "No message provided" });
+  console.log("POST /chat hit");
+  try {
+    console.log("Query:", message);
+    console.log("Query: Trying to hit");
+    const queryEmbedding = await getEmbedding(message);
 
-//   console.log("POST /chat hit");
-//   try {
-//     console.log("Query:", message);
-//     console.log("Query: Trying to hit");
-//     const queryEmbedding = await getEmbedding(message);
+    let relevantChunks = [];
+    let maxSim = 0;
+    for (let doc of documents) {
+      for (let chunk of doc.chunks) {
+        const sim = cosineSimilarity(queryEmbedding, chunk.embedding);
+        console.log(`SIM ${sim.toFixed(3)} → ${chunk.heading}`);
+        if (sim > 0.45) {
+          // relevantChunks.push(chunk.text);
+          relevantChunks.push({text: chunk.text, heading: chunk.heading, sim: sim});
+          maxSim = Math.max(maxSim, sim);
+        }
+      }
+    }
+    relevantChunks.sort((a, b) => b.sim - a.sim);
+    console.log("\n--- TOP MATCHED CHUNKS ---");
+    relevantChunks.slice(0, 3).forEach((c, i) => {
+      console.log(`#${i + 1} SIM ${c.sim.toFixed(3)} | ${c.heading}`);
+    });
+    console.log("--------------------------\n");
 
-//     let relevantChunks = [];
-//     let maxSim = 0;
-//     for (let doc of documents) {
-//       for (let chunk of doc.chunks) {
-//         const sim = cosineSimilarity(queryEmbedding, chunk.embedding);
-//         console.log(`SIM ${sim.toFixed(3)} → ${chunk.heading}`);
-//         if (sim > 0.45) {
-//           // relevantChunks.push(chunk.text);
-//           relevantChunks.push({text: chunk.text, heading: chunk.heading, sim: sim});
-//           maxSim = Math.max(maxSim, sim);
-//         }
-//       }
-//     }
-//     relevantChunks.sort((a, b) => b.sim - a.sim);
-//     console.log("\n--- TOP MATCHED CHUNKS ---");
-//     relevantChunks.slice(0, 3).forEach((c, i) => {
-//       console.log(`#${i + 1} SIM ${c.sim.toFixed(3)} | ${c.heading}`);
-//     });
-//     console.log("--------------------------\n");
+    let responseText;
+    const generateWithModel = async (modelName, prompt) => {
+      return await apiCallWithRetry(async () => {
+        const result = await ai.models.generateContent({
+          model: modelName, // e.g., 'gemini-2.5-flash'
+          contents: prompt, // String prompt
+        });
+        return result.text;
+      });
+    };
 
-//     let responseText;
-//     const generateWithModel = async (modelName, prompt) => {
-//       return await apiCallWithRetry(async () => {
-//         const result = await ai.models.generateContent({
-//           model: modelName, // e.g., 'gemini-2.5-flash'
-//           contents: prompt, // String prompt
-//         });
-//         return result.text;
-//       });
-//     };
+    const genModel = "gemini-2.5-flash"; // Stable model
 
-//     const genModel = "gemini-2.5-flash"; // Stable model
+    if (relevantChunks.length > 0) {
+      // const context = relevantChunks.slice(0, 3).join("\n\n");
+      const context = relevantChunks.slice(0, 3).map(c => c.text).join("\n\n");
+      const prompt = `Answer based ONLY on this PDF context. If unsure, say so.\n\nContext: ${context}\n\nQuestion: ${message}\n\nAnswer:`;
+      responseText = await generateWithModel(genModel, prompt);
+      console.log("RAG response generated");
+    } else if (maxSim > 0.5) {
+      const prompt = `Answer: ${message}. Note: Partial PDF match.`;
+      responseText = await generateWithModel(genModel, prompt);
+      console.log("Partial PDF match");
+    } else {
+      const prompt = `Answer briefly: ${message}. (No PDF info found)`;
+      responseText = await generateWithModel(genModel, prompt); // Single model for simplicity
+      console.log("No PDF info found");
+    }
 
-//     if (relevantChunks.length > 0) {
-//       // const context = relevantChunks.slice(0, 3).join("\n\n");
-//       const context = relevantChunks.slice(0, 3).map(c => c.text).join("\n\n");
-//       const prompt = `Answer based ONLY on this PDF context. If unsure, say so.\n\nContext: ${context}\n\nQuestion: ${message}\n\nAnswer:`;
-//       responseText = await generateWithModel(genModel, prompt);
-//       console.log("RAG response generated");
-//     } else if (maxSim > 0.5) {
-//       const prompt = `Answer: ${message}. Note: Partial PDF match.`;
-//       responseText = await generateWithModel(genModel, prompt);
-//       console.log("Partial PDF match");
-//     } else {
-//       const prompt = `Answer briefly: ${message}. (No PDF info found)`;
-//       responseText = await generateWithModel(genModel, prompt); // Single model for simplicity
-//       console.log("No PDF info found");
-//     }
+    res.json({ response: responseText });
+  } catch (error) {
+    console.error("Full chat error:", JSON.stringify(error, null, 2));
+    res.status(500).json({ error: error.message });
+    console.log("No response found");
+  }
+});
 
-//     res.json({ response: responseText });
-//   } catch (error) {
-//     console.error("Full chat error:", JSON.stringify(error, null, 2));
-//     res.status(500).json({ error: error.message });
-//     console.log("No response found");
-//   }
-// });
-
-// To run on local
-// const PORT = 5000;
-// app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`))
-
-// export for Vercel
-module.exports = app;
+const PORT = 5000;
+app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`))

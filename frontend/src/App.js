@@ -11,7 +11,7 @@ function App() {
   useEffect(() => {
     // Load PDF on mount
     // axios.get('http://localhost:5000/load-pdf').then(() => {
-      axios.get('/api/chat/load-pdf').then(() => {
+      axios.get('/api/chat').then(() => {
       // setMessages([{ sender: 'bot', text: 'PDF loaded! Ask away.' }]);
     }).catch(err => console.error(err));
   }, []);

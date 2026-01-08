@@ -45,7 +45,13 @@
 //         contents: text,
 //       })
 //     );
-//     console.log("getEmbedding: " + text.length);
+//     console.log("getEmbedding: " + getEmbedding + text);
+//     // console.log(`getEmbedding success for chunk: "${text.substring(0, 50)}..." (length: ${text.length})`);
+//     // console.log(`getEmbedding success: Chunk ${chunks.findIndex(c => c.text === text) + 1}/5 (length: ${text.length})`);
+//     // PLACEMENT: Replace existing success log with this block
+//     // if (process.env.NODE_ENV === 'development') {
+//     //   console.log(`getEmbedding success for chunk: "${text.substring(0, 50)}..." (length: ${text.length})`);
+//     // }
 //     return response.embeddings[0].values;
 //   } catch (error) {
 //     if (error.status === 429) {
@@ -59,129 +65,48 @@
 //   }
 // }
 
-
-// function chunkByHeadingOrParagraph(text) {
-//   console.log("\n--- CHUNKING STARTED ---\n");
-
-//   // Split by double newline (paragraphs)
-//   const blocks = text
-//     .split(/\n\s*\n/)
-//     .map(b => b.trim())
-//     .filter(Boolean);
-
-//   const chunks = [];
-//   let currentHeading = "Introduction";
-//   let currentText = [];
-
-//   const isHeading = (line) => {
-//     if (line.length > 80) return false;
-//     if (line.endsWith(".")) return false;
-
-//     const words = line.split(" ");
-//     const capitalWords = words.filter(
-//       w => w[0] === w[0]?.toUpperCase()
-//     );
-
-//     return capitalWords.length / words.length > 0.6;
-//   };
-
-//   for (const block of blocks) {
-//     const lines = block.split("\n").map(l => l.trim());
-
-//     if (lines.length === 1 && isHeading(lines[0])) {
-//       if (currentText.length) {
-//         chunks.push({
-//           heading: currentHeading,
-//           text: currentHeading + "\n" + currentText.join(" ")
-//         });
-//       }
-//       currentHeading = lines[0];
-//       currentText = [];
-//     } else {
-//       currentText.push(block);
-//     }
-//   }
-
-//   if (currentText.length) {
-//     chunks.push({
-//       heading: currentHeading,
-//       text: currentHeading + "\n" + currentText.join(" ")
-//     });
-//   }
-
-//   console.log(`Total chunks created: ${chunks.length}`);
-//   chunks.forEach((c, i) => {
-//     // Print chunks 
-//     // console.log(`\n[CHUNK ${i + 1}] HEADING: ${c.heading}`);
-//     console.log(c.text.substring(0, 200));
-//   });
-
-//   // console.log("\n--- CHUNKING COMPLETED ---\n");
-
-//   return chunks;
-// }
-
-
 // async function loadPDF(pdfPath) {
 //   console.log("In loadPDF");
-
 //   if (!fs.existsSync(pdfPath)) {
 //     throw new Error(`PDF file not found: ${pdfPath}`);
 //   }
-
 //   const dataBuffer = fs.readFileSync(pdfPath);
-//   let parser;
 
+//   let parser;
 //   try {
 //     console.log("Parsing PDF...");
-//     parser = new PDFParse({ data: dataBuffer });
-
+//     parser = new PDFParse({ data: dataBuffer }); // v2 API
 //     const data = await parser.getText();
 //     const text = data.text;
-
-//     // console.log("========== PDF CONTENT START ==========");
+//     // console.log('=== Full Extracted PDF Text ===');
 //     // console.log(text);
-//     // console.log("=========== PDF CONTENT END ===========");
+//     // console.log('=== End of PDF Text ===');
+//     console.log(`Extracted ${text.length} chars from PDF`);
 
-//     console.log(`Extracted ${text.length} characters from PDF`);
-
-//     // CHUNKING
-//     const chunks = chunkByHeadingOrParagraph(text);
-
-//     // EMBEDDINGS
-//     console.log("\n--- EMBEDDING STARTED ---\n");
-
-//     for (let i = 0; i < chunks.length; i++) {
-//       console.log(`Embedding chunk ${i + 1}/${chunks.length}`);
-//       console.log("Heading:", chunks[i].heading);
-
-//       chunks[i].embedding = await getEmbedding(chunks[i].text);
-
-//       console.log(
-//         "Embedding vector length:",
-//         chunks[i].embedding.length
-//       );
+//     const chunks = [];
+//     for (let i = 0; i < text.length; i += 500) {
+//       chunks.push({ text: text.slice(i, i + 500).trim() });
 //     }
 
-//     console.log("\n--- EMBEDDING COMPLETED ---\n");
+//     console.log(`Generating ${chunks.length} embeddings...`);
+//     for (let chunk of chunks) {
+//       if (chunk.text.length > 10) {
+//         try {
+//           chunk.embedding = await getEmbedding(chunk.text);
+//         } catch (e) {
+//           console.warn("Skipped chunk:", e.message);
+//         }
+//       }
+//     }
 
-//     // 🔹 STORE DOCUMENT
-//     documents.push({id: pdfPath,chunks});
-
-//     console.log("\n--- DOCUMENT STORED ---");
-//     console.log("Total documents:", documents.length);
+//     documents.push({ id: pdfPath, chunks: chunks.filter((c) => c.embedding) });
 //     console.log(
-//       "Total chunks stored:",
-//       documents[0].chunks.length
+//       `Loaded ${documents[0]?.chunks.length || 0} chunks from ${pdfPath}`
 //     );
-//     console.log("------------------------");
-
 //   } finally {
-//     if (parser) await parser.destroy();
+//     if (parser) await parser.destroy(); // Free memory
 //   }
-//   console.log("========= LOAD PDF END =========\n");
 // }
-
 
 // function cosineSimilarity(vecA, vecB) {
 //   const dot = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
@@ -221,20 +146,12 @@
 //     for (let doc of documents) {
 //       for (let chunk of doc.chunks) {
 //         const sim = cosineSimilarity(queryEmbedding, chunk.embedding);
-//         console.log(`SIM ${sim.toFixed(3)} → ${chunk.heading}`);
-//         if (sim > 0.45) {
-//           // relevantChunks.push(chunk.text);
-//           relevantChunks.push({text: chunk.text, heading: chunk.heading, sim: sim});
+//         if (sim > 0.7) {
+//           relevantChunks.push(chunk.text);
 //           maxSim = Math.max(maxSim, sim);
 //         }
 //       }
 //     }
-//     relevantChunks.sort((a, b) => b.sim - a.sim);
-//     console.log("\n--- TOP MATCHED CHUNKS ---");
-//     relevantChunks.slice(0, 3).forEach((c, i) => {
-//       console.log(`#${i + 1} SIM ${c.sim.toFixed(3)} | ${c.heading}`);
-//     });
-//     console.log("--------------------------\n");
 
 //     let responseText;
 //     const generateWithModel = async (modelName, prompt) => {
@@ -250,8 +167,7 @@
 //     const genModel = "gemini-2.5-flash"; // Stable model
 
 //     if (relevantChunks.length > 0) {
-//       // const context = relevantChunks.slice(0, 3).join("\n\n");
-//       const context = relevantChunks.slice(0, 3).map(c => c.text).join("\n\n");
+//       const context = relevantChunks.slice(0, 3).join("\n\n");
 //       const prompt = `Answer based ONLY on this PDF context. If unsure, say so.\n\nContext: ${context}\n\nQuestion: ${message}\n\nAnswer:`;
 //       responseText = await generateWithModel(genModel, prompt);
 //       console.log("RAG response generated");
@@ -274,4 +190,4 @@
 // });
 
 // const PORT = 5000;
-// app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`))
+// app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`));
